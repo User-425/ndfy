@@ -1,4 +1,4 @@
-import Fastify, { type FastifyInstance } from 'fastify';
+import Fastify, { type FastifyInstance, type FastifyPluginAsync } from 'fastify';
 import fastifyCors from '@fastify/cors';
 import fastifyWebsocket from '@fastify/websocket';
 import type { Config } from '../config/config.js';
@@ -58,23 +58,43 @@ export function buildServer(deps: AppDependencies) {
     },
   });
 
-  // Health route
-  app.register(healthRoutes, { messageService });
+  // Group all core routes
+  const registerCoreRoutes: FastifyPluginAsync = async (scope) => {
+    // Health route
+    scope.register(healthRoutes, { messageService });
 
-  // Subscription routes (GET /:topic/json, /sse, /raw, /ws)
-  app.register(subscribeRoutes, {
-    messageService,
-    authService,
-    rateLimiter: subscribeLimiter,
-    keepaliveIntervalSeconds: config.KEEPALIVE_INTERVAL,
-  });
+    // Subscription routes (GET /:topic/json, /sse, /raw, /ws)
+    scope.register(subscribeRoutes, {
+      messageService,
+      authService,
+      rateLimiter: subscribeLimiter,
+      keepaliveIntervalSeconds: config.KEEPALIVE_INTERVAL,
+    });
 
-  // Publishing routes (POST/PUT /:topic, POST/PUT /)
-  app.register(publishRoutes, {
-    messageService,
-    authService,
-    rateLimiter: publishLimiter,
-  });
+    // Publishing routes (POST/PUT /:topic, POST/PUT /)
+    scope.register(publishRoutes, {
+      messageService,
+      authService,
+      rateLimiter: publishLimiter,
+    });
+  };
+
+  // Register routes at root
+  app.register(registerCoreRoutes);
+
+  // If PUBLIC_BASE_URL has a subpath (e.g. /ntfy), also mount routes with that prefix
+  let subpath = '';
+  try {
+    const parsedUrl = new URL(config.PUBLIC_BASE_URL);
+    subpath = parsedUrl.pathname.replace(/\/+$/, '');
+  } catch {
+    subpath = '';
+  }
+
+  if (subpath && subpath !== '/') {
+    app.register(registerCoreRoutes, { prefix: subpath });
+  }
 
   return app;
 }
+
