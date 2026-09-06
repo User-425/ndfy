@@ -22,7 +22,7 @@ export function buildServer(deps: AppDependencies) {
   const { config, messageService, authService, logger } = deps;
 
   const app = Fastify({
-    logger: deps.logger as any,
+    loggerInstance: logger as any,
     trustProxy: config.TRUST_PROXY,
     bodyLimit: config.MESSAGE_SIZE_LIMIT + 1024,
   });
