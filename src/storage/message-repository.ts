@@ -171,7 +171,7 @@ export class MessageRepository {
     }
 
     const stmt = this.db.prepare(sql);
-    const rows = stmt.all(...params) as MessageRow[];
+    const rows = stmt.all(...params) as unknown as MessageRow[];
     let messages = rows.map((r) => this.rowToMessage(r));
 
     // In-memory filter for tags if specified
@@ -192,7 +192,7 @@ export class MessageRepository {
       ORDER BY scheduled_at ASC
     `);
 
-    const rows = stmt.all(currentUnix) as MessageRow[];
+    const rows = stmt.all(currentUnix) as unknown as MessageRow[];
     return rows.map((row) => ({
       message: this.rowToMessage(row),
       scheduledAt: row.scheduled_at!,
