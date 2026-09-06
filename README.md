@@ -1,6 +1,5 @@
 # ndfy
-
-A lightweight, production-quality, **ntfy-compatible notification server** in Node.js.
+ntfy, but in Node.js
 
 Designed to be a drop-in replacement for the core subset of [ntfy](https://ntfy.sh). Existing client applications publishing to `https://ntfy.sh/my-topic` can migrate to `https://notify.example.com/my-topic` simply by updating their base URL. The official ntfy mobile application can subscribe and receive push notifications via upstream poll-request wake-up.
 
