@@ -1,4 +1,4 @@
-import type { FastifyPluginAsync } from 'fastify';
+﻿import type { FastifyPluginAsync } from 'fastify';
 import type { MessageService } from '../../domain/message-service.js';
 import type { AuthService } from '../../domain/auth-service.js';
 import type { MemoryRateLimiter } from '../../security/rate-limiter.js';
@@ -23,6 +23,32 @@ export const subscribeRoutes: FastifyPluginAsync<SubscribeRouteOptions> = async 
 
   const authHook = createAuthMiddleware(authService);
   const rateLimitHook = createRateLimitMiddleware(rateLimiter);
+
+  // GET /:topic/auth - Auth check endpoint used by ntfy web app and mobile client
+  fastify.get(
+    '/:topic/auth',
+    { preHandler: [authHook, rateLimitHook] },
+    async (_request, reply) => {
+      reply.status(200).send({ success: true });
+    }
+  );
+
+  // GET /v1/auth & GET /auth
+  fastify.get(
+    '/v1/auth',
+    { preHandler: [authHook, rateLimitHook] },
+    async (_request, reply) => {
+      reply.status(200).send({ success: true });
+    }
+  );
+
+  fastify.get(
+    '/auth',
+    { preHandler: [authHook, rateLimitHook] },
+    async (_request, reply) => {
+      reply.status(200).send({ success: true });
+    }
+  );
 
   // Common handler for streaming subscriptions
   const handleStreaming = (
@@ -63,7 +89,7 @@ export const subscribeRoutes: FastifyPluginAsync<SubscribeRouteOptions> = async 
       );
     }
 
-    // If query has `since` or `poll=1`, replay cached messages
+    // If query has since or poll=1, replay cached messages
     if (query.since || query.poll || query.id || query.tags || query.priority) {
       const cachedMessages = messageService.queryCachedMessages(topic, {
         since: query.since,
