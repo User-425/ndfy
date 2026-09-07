@@ -25,6 +25,7 @@ export function buildServer(deps: AppDependencies) {
     loggerInstance: logger as any,
     trustProxy: config.TRUST_PROXY,
     bodyLimit: config.MESSAGE_SIZE_LIMIT + 1024,
+    ignoreTrailingSlash: true,
   });
 
   // Add plain text and fallback body parsers for publishing
@@ -38,6 +39,15 @@ export function buildServer(deps: AppDependencies) {
 
   // Centralized ntfy error handler
   app.setErrorHandler(errorHandler);
+
+  // Custom 404 handler returning standard ntfy error format
+  app.setNotFoundHandler((request, reply) => {
+    reply.status(404).send({
+      code: 40401,
+      http: 404,
+      error: `Route ${request.method}:${request.url} not found`,
+    });
+  });
 
   // Rate limiters
   const publishLimiter = new MemoryRateLimiter({
@@ -63,7 +73,7 @@ export function buildServer(deps: AppDependencies) {
     // Health route
     scope.register(healthRoutes, { messageService });
 
-    // Subscription routes (GET /:topic/json, /sse, /raw, /ws)
+    // Subscription routes (GET /:topic, /:topic/json, /sse, /raw, /ws)
     scope.register(subscribeRoutes, {
       messageService,
       authService,
@@ -82,17 +92,20 @@ export function buildServer(deps: AppDependencies) {
   // Register routes at root
   app.register(registerCoreRoutes);
 
-  // If PUBLIC_BASE_URL has a subpath (e.g. /ntfy), also mount routes with that prefix
-  let subpath = '';
+  // Mount routes with common prefixes (/ndfy, /ntfy) and PUBLIC_BASE_URL subpath
+  const prefixes = new Set<string>(['/ndfy', '/ntfy']);
   try {
     const parsedUrl = new URL(config.PUBLIC_BASE_URL);
-    subpath = parsedUrl.pathname.replace(/\/+$/, '');
+    const subpath = parsedUrl.pathname.replace(/\/+$/, '');
+    if (subpath && subpath !== '/') {
+      prefixes.add(subpath);
+    }
   } catch {
-    subpath = '';
+    // Ignore invalid URL
   }
 
-  if (subpath && subpath !== '/') {
-    app.register(registerCoreRoutes, { prefix: subpath });
+  for (const prefix of prefixes) {
+    app.register(registerCoreRoutes, { prefix });
   }
 
   return app;
