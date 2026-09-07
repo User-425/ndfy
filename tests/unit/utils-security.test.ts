@@ -5,6 +5,7 @@ import { isValidTopic, validateTopic, validateTopicList, InvalidTopicError } fro
 import { MemoryRateLimiter } from '../../src/security/rate-limiter.js';
 import { isPrivateIp, validateSafeUrl } from '../../src/security/ssrf.js';
 import { loadConfig } from '../../src/config/config.js';
+import { AuthService } from '../../src/domain/auth-service.js';
 
 describe('ID Generator', () => {
   it('generates random IDs of proper length', () => {
@@ -144,3 +145,69 @@ describe('Configuration Loader', () => {
     expect(config.AUTH_TOKENS).toEqual(['tk_1', 'tk_2']);
   });
 });
+
+describe('AuthService', () => {
+  it('allows all when auth mode is none', () => {
+    const auth = new AuthService({ mode: 'none', tokens: [] });
+    expect(auth.isAuthorized()).toBe(true);
+    expect(auth.isAuthorized('')).toBe(true);
+    expect(auth.isAuthorized('any_string')).toBe(true);
+  });
+
+  it('validates Bearer token in token mode', () => {
+    const auth = new AuthService({ mode: 'token', tokens: ['tk_secret_123', 'tk_backup_456'] });
+    expect(auth.isAuthorized('Bearer tk_secret_123')).toBe(true);
+    expect(auth.isAuthorized('bearer tk_backup_456')).toBe(true);
+    expect(auth.isAuthorized('Bearer tk_wrong')).toBe(false);
+  });
+
+  it('validates plain raw token in ?auth= parameter', () => {
+    const auth = new AuthService({ mode: 'token', tokens: ['tk_secret_123'] });
+    expect(auth.isAuthorized('tk_secret_123')).toBe(true);
+    expect(auth.isAuthorized('wrong_token')).toBe(false);
+  });
+
+  it('validates HTTP Basic Auth header (user:password or :password)', () => {
+    const auth = new AuthService({ mode: 'token', tokens: ['tk_secret_123'] });
+    
+    // admin:tk_secret_123
+    const basic1 = 'Basic ' + Buffer.from('admin:tk_secret_123').toString('base64');
+    expect(auth.isAuthorized(basic1)).toBe(true);
+
+    // :tk_secret_123
+    const basic2 = 'Basic ' + Buffer.from(':tk_secret_123').toString('base64');
+    expect(auth.isAuthorized(basic2)).toBe(true);
+
+    // tk_secret_123:
+    const basic3 = 'Basic ' + Buffer.from('tk_secret_123:').toString('base64');
+    expect(auth.isAuthorized(basic3)).toBe(true);
+
+    // wrong password
+    const basicWrong = 'Basic ' + Buffer.from('admin:wrongpass').toString('base64');
+    expect(auth.isAuthorized(basicWrong)).toBe(false);
+  });
+
+  it('validates Base64 encoded string in ?auth= (ntfy web app / EventSource)', () => {
+    const auth = new AuthService({ mode: 'token', tokens: ['tk_secret_123'] });
+
+    // Base64 of admin:tk_secret_123
+    const queryBase64UserPass = Buffer.from('admin:tk_secret_123').toString('base64');
+    expect(auth.isAuthorized(queryBase64UserPass)).toBe(true);
+
+    // Base64 of raw token
+    const queryBase64Raw = Buffer.from('tk_secret_123').toString('base64');
+    expect(auth.isAuthorized(queryBase64Raw)).toBe(true);
+
+    // Base64 of wrong token
+    const queryBase64Wrong = Buffer.from('wrong_token').toString('base64');
+    expect(auth.isAuthorized(queryBase64Wrong)).toBe(false);
+  });
+
+  it('rejects empty or missing credentials when token mode is active', () => {
+    const auth = new AuthService({ mode: 'token', tokens: ['tk_secret_123'] });
+    expect(auth.isAuthorized()).toBe(false);
+    expect(auth.isAuthorized('')).toBe(false);
+    expect(auth.isAuthorized('   ')).toBe(false);
+  });
+});
+
