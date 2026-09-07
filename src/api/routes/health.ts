@@ -1,4 +1,4 @@
-﻿import type { FastifyPluginAsync } from 'fastify';
+import type { FastifyPluginAsync } from 'fastify';
 import type { MessageService } from '../../domain/message-service.js';
 
 export interface HealthRouteOptions {
@@ -27,6 +27,10 @@ export const healthRoutes: FastifyPluginAsync<HealthRouteOptions> = async (fasti
       messages_count: messageCount,
     };
   };
+
+  fastify.get('/', async (_request, reply) => {
+    reply.status(200).send(getHealthResponse());
+  });
 
   fastify.get('/v1/health', async (_request, reply) => {
     reply.status(200).send(getHealthResponse());
