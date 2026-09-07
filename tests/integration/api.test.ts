@@ -116,4 +116,44 @@ describe('API Integration Tests', () => {
     expect(res.statusCode).toBe(400);
     expect(JSON.parse(res.body).code).toBe(40001);
   });
+
+  it('handles GET /:topic and GET /ndfy/test/ with trailing slashes and prefix', async () => {
+    const config = loadConfig({
+      AUTH_MODE: 'none',
+      PUBLIC_BASE_URL: 'https://apps1.vynzzhost.com:25575/ndfy',
+    });
+    const authService = new AuthService({ mode: 'none', tokens: [] });
+    const app = buildServer({ config, messageService, authService, logger });
+
+    // Publish a test message
+    await app.inject({
+      method: 'POST',
+      url: '/ndfy/test',
+      body: 'Hello World',
+    });
+
+    // GET /ndfy/test/ with poll=1 and trailing slash
+    const res1 = await app.inject({
+      method: 'GET',
+      url: '/ndfy/test/?poll=1',
+    });
+    expect(res1.statusCode).toBe(200);
+    expect(res1.body).toContain('Hello World');
+
+    // GET /ndfy/ (root info)
+    const resRoot = await app.inject({
+      method: 'GET',
+      url: '/ndfy/',
+    });
+    expect(resRoot.statusCode).toBe(200);
+    expect(JSON.parse(resRoot.body).status).toBe('ok');
+
+    // GET /ntfy/test/json (alternative prefix)
+    const resNtfy = await app.inject({
+      method: 'GET',
+      url: '/ntfy/test/json?poll=1',
+    });
+    expect(resNtfy.statusCode).toBe(200);
+    expect(resNtfy.body).toContain('Hello World');
+  });
 });
