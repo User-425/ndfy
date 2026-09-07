@@ -1,4 +1,4 @@
-﻿import type { FastifyPluginAsync } from 'fastify';
+import type { FastifyPluginAsync } from 'fastify';
 import type { MessageService } from '../../domain/message-service.js';
 import type { AuthService } from '../../domain/auth-service.js';
 import type { MemoryRateLimiter } from '../../security/rate-limiter.js';
@@ -113,6 +113,35 @@ export const subscribeRoutes: FastifyPluginAsync<SubscribeRouteOptions> = async 
     // Otherwise, subscribe to real-time events
     broker.subscribe(topic, subscriber);
   };
+
+  // GET /:topic (Default subscription endpoint with content negotiation)
+  fastify.get(
+    '/:topic',
+    { preHandler: [authHook, rateLimitHook] },
+    (request: any, reply: any) => {
+      const accept = String(request.headers?.accept || '').toLowerCase();
+      const format = String(request.query?.format || request.query?.f || '').toLowerCase();
+
+      let transport: 'json' | 'sse' | 'raw' = 'json';
+
+      if (format === 'sse' || format === 'event-stream' || accept.includes('text/event-stream')) {
+        transport = 'sse';
+      } else if (format === 'raw' || format === 'text' || format === 'plain' || accept.includes('text/plain')) {
+        transport = 'raw';
+      } else if (
+        format === 'json' ||
+        format === 'ndjson' ||
+        accept.includes('application/json') ||
+        accept.includes('application/x-ndjson')
+      ) {
+        transport = 'json';
+      } else {
+        transport = 'json';
+      }
+
+      return handleStreaming(transport, request, reply);
+    }
+  );
 
   // GET /:topic/json
   fastify.get(
