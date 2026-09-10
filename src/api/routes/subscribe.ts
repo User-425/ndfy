@@ -66,6 +66,17 @@ export const subscribeRoutes: FastifyPluginAsync<SubscribeRouteOptions> = async 
       reply.hijack();
     }
     const rawRes = reply.raw;
+
+    // CORS headers.
+    const origin = request.headers.origin || '*';
+    rawRes.setHeader('Access-Control-Allow-Origin', origin);
+    if (request.headers.origin) {
+      rawRes.setHeader('Access-Control-Allow-Credentials', 'true');
+    }
+    rawRes.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+    rawRes.setHeader('Access-Control-Allow-Headers', '*');
+    rawRes.setHeader('Access-Control-Expose-Headers', '*');
+
     const topicString = topics.join(',');
 
     const unsubscribeAll = () => {
