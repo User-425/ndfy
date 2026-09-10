@@ -155,5 +155,20 @@ describe('API Integration Tests', () => {
     });
     expect(resNtfy.statusCode).toBe(200);
     expect(resNtfy.body).toContain('Hello World');
+
+    // Multi-topic subscription with comma (e.g. /ndfy/test,alerts/json)
+    await app.inject({
+      method: 'POST',
+      url: '/ndfy/alerts',
+      body: 'Alert Message',
+    });
+
+    const resMulti = await app.inject({
+      method: 'GET',
+      url: '/ndfy/test,alerts/json?poll=1',
+    });
+    expect(resMulti.statusCode).toBe(200);
+    expect(resMulti.body).toContain('Hello World');
+    expect(resMulti.body).toContain('Alert Message');
   });
 });

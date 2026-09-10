@@ -57,10 +57,15 @@ describe('Time and Duration Utilities', () => {
 });
 
 describe('Topic Validator', () => {
-  it('accepts valid topics', () => {
+  it('accepts valid topics including dots and sanitized URLs/slashes', () => {
     expect(isValidTopic('alerts')).toBe(true);
     expect(isValidTopic('my-topic_123')).toBe(true);
+    expect(isValidTopic('alerts.prod')).toBe(true);
     expect(validateTopic('alerts')).toBe('alerts');
+    expect(validateTopic('alerts.prod')).toBe('alerts.prod');
+    expect(validateTopic('/alerts/')).toBe('alerts');
+    expect(validateTopic('http://apps1.vynzzhost.com:25575/ndfy')).toBe('ndfy');
+    expect(validateTopic('http://apps1.vynzzhost.com:25575/ndfy/my-topic')).toBe('my-topic');
   });
 
   it('rejects path traversal, slashes, and control characters', () => {
@@ -77,6 +82,8 @@ describe('Topic Validator', () => {
 
   it('validates topic lists', () => {
     expect(validateTopicList('alerts, metrics, backend')).toEqual(['alerts', 'metrics', 'backend']);
+    expect(validateTopicList(['alerts', 'metrics, backend'])).toEqual(['alerts', 'metrics', 'backend']);
+    expect(validateTopicList('topic1,topic2')).toEqual(['topic1', 'topic2']);
     expect(() => validateTopicList('')).toThrow(InvalidTopicError);
   });
 });
